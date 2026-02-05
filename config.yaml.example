@@ -1,0 +1,83 @@
+# NewAPI 配置文件示例
+# 使用前请复制为 config.yaml 并填写实际配置
+
+# OpenAI 兼容接口配置（支持多个）
+# 每次运行会对所有启用的 API 都发送请求
+apis:
+  - name: "API-1"                     # API 名称（用于日志标识）
+    enabled: true                     # 是否启用
+    url: "https://api.example1.com/v1"
+    api_key: "your-api-key-1"
+    model: "gpt-3.5-turbo"
+    max_tokens: 100
+    temperature: 0.7
+  
+  - name: "API-2"
+    enabled: true
+    url: "https://api.example2.com/v1"
+    api_key: "your-api-key-2"
+    model: "gpt-4"
+    max_tokens: 100
+    temperature: 0.7
+  
+  - name: "API-3"
+    enabled: false                    # 禁用此 API
+    url: "https://api.example3.com/v1"
+    api_key: "your-api-key-3"
+    model: "gpt-3.5-turbo"
+    max_tokens: 100
+    temperature: 0.7
+
+# 请求策略配置（按优先级顺序执行）
+request_strategies:
+  # 策略1: 获取新闻标题
+  - type: "news"
+    enabled: true
+    priority: 1
+    config:
+      # RSS源地址（可选多个，随机选择一个）
+      rss_urls:
+        - "https://www.163.com/rss/"
+        - "https://feedx.net/rss/people.xml"
+        - "http://www.people.com.cn/rss/politics.xml"
+      prompt_template: "用一句话概括这条新闻的核心内容：{news_title}"
+      max_news_length: 200  # 新闻标题最大长度
+
+  # 策略2: 获取网页内容
+  - type: "webpage"
+    enabled: true
+    priority: 2
+    config:
+      urls:
+        - "https://www.baidu.com"
+        - "https://news.sina.com.cn"
+        - "https://www.163.com"
+      prompt_template: "总结这个网页标题的主题：{page_title}"
+      timeout: 10  # 请求超时时间（秒）
+
+  # 策略3: 随机问题（降级方案）
+  - type: "random_question"
+    enabled: true
+    priority: 3
+    config:
+      question_templates:
+        - "计算 {num1} + {num2} 的结果"
+        - "将数字 {num} 转换为二进制"
+        - "{year} 年是闰年吗？"
+        - "Python 的 {keyword} 关键字有什么作用？"
+        - "HTTP 状态码 {code} 代表什么？"
+      variables:
+        num1: [10, 50]      # 随机范围
+        num2: [10, 50]
+        num: [1, 255]
+        year: [2020, 2030]
+        keyword: ["async", "await", "lambda", "yield", "with"]
+        code: [200, 201, 400, 401, 403, 404, 500, 502, 503]
+
+# 日志配置
+logging:
+  path: "./logs"
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+  format: "%(asctime)s - %(levelname)s - %(message)s"
