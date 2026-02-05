@@ -4,24 +4,27 @@ NewAPI 接口保活工具 - 通过定期发送轻量级请求保持 API 活跃�
 
 ## 功能特点
 
+- **Web 管理界面**：实时日志查看、手动触发任务、定时任务状态
 - **支持多个 API**：可配置多个 OpenAI 兼容接口，每次运行对所有 API 发送请求
+- **Docker Compose 一键部署**：开箱即用，无需配置环境
 - 支持多种请求策略（新闻、网页、随机问题）
 - 策略优先级和降级机制
 - 详细的日志记录（控制台 + 文件），每个 API 单独记录
 - 灵活的配置文件
-- 虚拟环境隔离
+- 内置定时任务（每 12 小时自动执行）
 
 ## 项目结构
 
 ```
 test-newapi/
-├── venv/                      # Python 虚拟环境
 ├── strategies/                # 请求策略模块
 │   ├── __init__.py
 │   ├── base_strategy.py       # 策略基类
 │   ├── news_strategy.py       # 新闻策略
 │   ├── webpage_strategy.py    # 网页策略
 │   └── random_question_strategy.py  # 随机问题策略
+├── templates/                 # Web 界面模板
+│   └── index.html             # 管理界面
 ├── logs/                      # 日志目录
 │   ├── newapi_keeper.log      # 主日志
 │   └── request_details.jsonl  # 详细请求记录
@@ -30,33 +33,26 @@ test-newapi/
 ├── config_loader.py           # 配置加载器
 ├── newapi_client.py           # NewAPI 客户端
 ├── logger.py                  # 日志模块
-├── main.py                    # 主程序入口
+├── log_broadcaster.py         # 日志广播（实时推送）
+├── app.py                     # Web 服务入口（推荐）
+├── main.py                    # 命令行入口（单次执行）
+├── Dockerfile                 # Docker 镜像配置
+├── docker-compose.yml         # Docker Compose 配置
 ├── requirements.txt           # Python 依赖
 └── README.md                  # 本文件
 ```
 
-## 快速开始
+## 快速开始（Docker Compose 推荐）
 
-### 1. 安装依赖
-
-```bash
-cd /home/test-newapi
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. 配置文件
-
-复制配置文件模板并填写实际配置：
+### 1. 准备配置文件
 
 ```bash
 cp config.yaml.example config.yaml
 ```
 
-编辑 `config.yaml`，填写以下必需信息：
+编辑 `config.yaml`，填写 API 配置：
 
 ```yaml
-# 配置多个 OpenAI 兼容接口
 apis:
   - name: "API-1"
     enabled: true
@@ -71,7 +67,56 @@ apis:
     model: "gpt-4"
 ```
 
-### 3. 运行程序
+### 2. 启动服务
+
+```bash
+docker-compose up -d
+```
+
+### 3. 浏览器访问
+
+打开浏览器访问 Web 管理界面：
+
+```
+http://localhost:5000
+```
+
+Web 界面功能：
+- 实时查看运行日志
+- 手动触发保活任务
+- 查看下次定时执行时间
+- 查看历史请求记录
+
+---
+
+## 本地开发运行
+
+如果不使用 Docker，可以本地运行：
+
+### 1. 安装依赖
+
+```bash
+cd /home/test-newapi
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. 配置文件
+
+```bash
+cp config.yaml.example config.yaml
+# 编辑 config.yaml 填写配置
+```
+
+### 3. 运行 Web 服务（推荐）
+
+```bash
+python app.py --port 5000
+```
+
+然后访问 `http://localhost:5000`
+
+### 4. 仅运行一次保活任务
 
 ```bash
 python main.py
@@ -238,24 +283,9 @@ sudo systemctl start newapi-keeper.timer
 
 ## Docker 部署
 
-### Dockerfile
+项目已包含 `Dockerfile` 和 `docker-compose.yml`，可直接使用。
 
-创建 `Dockerfile`：
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-CMD ["python", "main.py"]
-```
-
-### docker-compose.yml
+### docker-compose.yml 配置说明
 
 ```yaml
 version: '3.8'
@@ -263,19 +293,41 @@ version: '3.8'
 services:
   newapi-keeper:
     build: .
+    container_name: newapi-keeper
     volumes:
-      - ./config.yaml:/app/config.yaml
-      - ./logs:/app/logs
+      - ./config.yaml:/app/config.yaml:ro  # 配置文件（只读）
+      - ./logs:/app/logs                    # 日志目录
     restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
+      # 代理配置（可选，用于网络受限环境）
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+    network_mode: host  # 使用宿主机网络
 ```
 
-### 构建和运行
+### 启动服务
 
 ```bash
+# 构建并启动
 docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
 ```
+
+### 浏览器访问
+
+服务启动后，访问 Web 管理界面：
+
+```
+http://localhost:5000
+```
+
+> **注意**：由于使用 `network_mode: host`，服务直接监听宿主机的 5000 端口。如需修改端口，可在启动时传入参数或修改 Dockerfile。
 
 ## 日志查看
 
